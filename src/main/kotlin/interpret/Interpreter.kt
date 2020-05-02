@@ -1,7 +1,7 @@
 package interpret
 
+import kotlinx.collections.immutable.persistentHashMapOf
 import syntax.*
-import types.CheckState
 import types.TypeChecker
 
 inline class Environment(val env: HashMap<Name, IR> = HashMap()) {
@@ -142,17 +142,18 @@ fun runProg(name: String, input: String) {
 
     val expr = Parser.parseExpression(input)
     try {
-        val initialEnv = types.Environment()
-        listOf(
+        val env = persistentHashMapOf(*listOf(
             "add" to "Int -> Int -> Int",
             "sub" to "Int -> Int -> Int",
             "int_equals" to "Int -> Int -> Bool",
             "concat" to "String -> String -> String",
             "int_to_string" to "Int -> String"
-        ).forEach { (name, ty) ->
-            initialEnv[Name(name)] = Parser.parseTestType(ty)
-        }
-        val ty = TypeChecker(CheckState(environment = initialEnv)).inferExpr(expr)
+        ).map { (name, ty) ->
+            Name(name) to Parser.parseTestType(ty)
+        }.toTypedArray()
+        )
+
+        val ty = TypeChecker().inferExpr(types.Environment(env), expr)
         println("Inferred ${ty.pretty()}")
     } catch (ex: Exception) {
         println("Inference failed with: ${ex.message}")

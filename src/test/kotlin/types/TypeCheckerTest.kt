@@ -1,5 +1,6 @@
 package types
 
+import kotlinx.collections.immutable.persistentHashMapOf
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
@@ -10,11 +11,12 @@ import syntax.*
 
 internal class TypeCheckerTest {
 
-    var typeChecker = TypeChecker(CheckState())
+    var typeChecker = TypeChecker()
 
     @BeforeEach
     fun setUp() {
-        typeChecker.checkState = CheckState()
+        typeChecker.freshSupply = 0
+        typeChecker.substitution = Substitution(hashMapOf())
     }
 
     @Test
@@ -38,11 +40,10 @@ internal class TypeCheckerTest {
     @Test
     @Tag("var")
     fun `it infers the type of a variable that exists in the Environment`() {
-        given("x", "Int")
-        given("y", "String")
+        val env = given("x" to "Int", "y" to "String")
 
-        "x" hasType "Int"
-        "y" hasType "String"
+        "x" inEnvironment env hasType "Int"
+        "y" inEnvironment env hasType "String"
     }
 
     @Test
@@ -148,25 +149,25 @@ internal class TypeCheckerTest {
     @Test
     @Tag("application")
     fun `it figures out a simple application`() {
-        given("myFunc", "Bool -> Int")
+        val env = given("myFunc" to "Bool -> Int")
 
-        "myFunc true" hasType "Int"
+        "myFunc true" inEnvironment env hasType "Int"
     }
 
     @Test
     @Tag("application")
     fun `it handles curried application`() {
-        given("add", "Int -> Int -> Int")
+        val env = given("add" to "Int -> Int -> Int")
 
-        "add 1 2" hasType "Int"
+        "add 1 2" inEnvironment env hasType "Int"
     }
 
     @Test
     @Tag("application")
     fun `it fails on an ill-typed application`() {
-        given("myFunc", "Bool -> Int")
+        val env = given("myFunc" to "Bool -> Int")
 
-        "myFunc 10" failsToTypecheckWith UnificationFailure("Bool", "Int")
+        "myFunc 10" inEnvironment env failsToTypecheckWith UnificationFailure("Bool", "Int")
     }
 
     @Test
@@ -232,23 +233,25 @@ internal class TypeCheckerTest {
     @Test
     @Tag("recursivelet")
     fun `it infers a recursive let`() {
-        given("eq_int", "Int -> Int -> Bool")
-        given("add", "Int -> Int -> Int")
-        given("sub", "Int -> Int -> Int")
+        val env = given(
+            "eq_int" to "Int -> Int -> Bool",
+            "add" to "Int -> Int -> Int",
+            "sub" to "Int -> Int -> Int"
+        )
         """
             let sum = \x -> if eq_int x 0 then 0 else add x (sum (sub x 1)) in
             sum 3
-        """ hasType "Int"
+        """ inEnvironment env hasType "Int"
     }
 
     @Test
     @Tag("recursivelet")
     fun `it fails to typecheck a wrong recursive let`() {
-        given("add", "Int -> Int -> Int")
+        val env = given("add" to "Int -> Int -> Int")
         """
             let fail = \x -> add fail 10 in
             fail 3
-        """ failsToTypecheckWith UnificationFailure("u2 -> Int", "Int")
+        """ inEnvironment env failsToTypecheckWith UnificationFailure("u2 -> Int", "Int")
         // Hard to give the precise error here. Just make sure it fails with a sensible error
     }
 
@@ -267,14 +270,15 @@ internal class TypeCheckerTest {
 
     // ================ Testing DSL from here ================
 
-    private fun given(v: String, ty: String) {
-        typeChecker.checkState.environment[Name(v)] = Parser.parseTestType(ty)
+    private fun given(vararg givens: Pair<String, String>): Environment {
+        val givensList = givens.map { (v, ty) -> Name(v) to Parser.parseTestType(ty) }
+        return Environment(persistentHashMapOf(*givensList.toTypedArray()))
     }
 
     private infix fun String.hasType(tyString: String) {
         val expr = Parser.parseExpression(this)
         val ty = Parser.parseTestType(tyString)
-        val inferred = typeChecker.inferExpr(expr)
+        val inferred = typeChecker.inferExpr(Environment(), expr)
 
         assertEquals(ty, inferred) {
             "$this\n  was inferred to have type:\n${inferred.pretty()}\n  but should have type:\n$tyString\n"
@@ -284,7 +288,7 @@ internal class TypeCheckerTest {
     private infix fun String.failsToTypecheckWith(message: String) {
         val expr = Parser.parseExpression(this)
         val exception: Exception = assertThrows(Exception::class.java) {
-            typeChecker.inferExpr(expr)
+            typeChecker.inferExpr(Environment(), expr)
         }
         assertEquals(message, exception.message)
     }
@@ -294,7 +298,7 @@ internal class TypeCheckerTest {
     private infix fun String.failsToTypecheckWith(u: UnificationFailure) {
         val expr = Parser.parseExpression(this)
         val exception: Exception = assertThrows(Exception::class.java) {
-            typeChecker.inferExpr(expr)
+            typeChecker.inferExpr(Environment(), expr)
         }
         assertEquals(
             true,
@@ -304,4 +308,42 @@ internal class TypeCheckerTest {
             "$this\n  should have failed to unify\n${u.ty1} with ${u.ty2}\n  but instead failed with\n${exception.message}\n"
         }
     }
+    private infix fun ExprWithEnv.hasType(tyString: String) {
+        val ty = Parser.parseTestType(tyString)
+        val inferred = typeChecker.inferExpr(env, expr)
+
+        assertEquals(ty, inferred) {
+            "$this\n  was inferred to have type:\n${inferred.pretty()}\n  but should have type:\n$tyString\n"
+        }
+    }
+
+    private infix fun String.inEnvironment(env: Environment): ExprWithEnv =
+        ExprWithEnv(env, Parser.parseExpression(this))
+
+    private infix fun ExprWithEnv.failsToTypecheckWith(message: String) {
+        val exception: Exception = assertThrows(Exception::class.java) {
+            typeChecker.inferExpr(env, expr)
+        }
+        assertEquals(message, exception.message)
+    }
+
+    private infix fun ExprWithEnv.failsToTypecheckWith(u: UnificationFailure) {
+        val exception: Exception = assertThrows(Exception::class.java) {
+            typeChecker.inferExpr(env, expr)
+        }
+        assertEquals(
+            true,
+            exception.message == "Can't match ${u.ty1} with ${u.ty2}" ||
+                    exception.message == "Can't match ${u.ty2} with ${u.ty1}"
+        ) {
+            "$this\n  should have failed to unify\n${u.ty1} with ${u.ty2}\n  but instead failed with\n${exception.message}\n"
+        }
+    }
+
 }
+
+data class ExprWithEnv(val env: Environment, val expr: Expression)
+
+
+
+

@@ -1,5 +1,7 @@
 package types
 
+import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentHashMapOf
 import syntax.*
 import kotlin.Exception
 
@@ -9,31 +11,28 @@ inline class Substitution(val subst: HashMap<Int, Monotype> = hashMapOf()) {
         return ty
     }
 
+    operator fun set(u: Int, ty: Monotype) {
+        subst[u] = ty
+    }
+
     override fun toString(): String =
         "{ " + subst.toList().joinToString("\n, ") { (u, ty) -> "u$u ↦ ${ty.pretty()}" } + "\n}"
 }
 
-inline class Environment(val env: HashMap<Name, Monotype> = hashMapOf()) {
-    fun clone(): Environment = Environment(HashMap(env))
+inline class Environment(val env: PersistentMap<Name, Monotype> = persistentHashMapOf()) {
     operator fun get(name: Name): Monotype? = env[name]
-    operator fun set(name: Name, ty: Monotype) {
-        env[name] = ty
-    }
+    fun extend(name: Name, ty: Monotype) = env.put(name, ty)
 }
 
-data class CheckState(
-    var environment: Environment = Environment(),
-    val substitution: Substitution = Substitution(),
-    var fresh_supply: Int = 0
-)
-
-class TypeChecker(var checkState: CheckState) {
+class TypeChecker {
+    var freshSupply: Int = 0
+    var substitution: Substitution = Substitution()
 
     // Returns a fresh `Unknown`, where fresh means "not ever used before"
-    private fun freshUnknown(): Monotype = Monotype.Unknown(++checkState.fresh_supply)
+    private fun freshUnknown(): Monotype = Monotype.Unknown(++freshSupply)
 
     // Applies the current substitution to a given type
-    fun zonk(ty: Monotype): Monotype = checkState.substitution.apply(ty)
+    fun zonk(ty: Monotype): Monotype = substitution.apply(ty)
 
     fun unify(ty1: Monotype, ty2: Monotype) {
         val ty1 = zonk(ty1)
@@ -41,9 +40,9 @@ class TypeChecker(var checkState: CheckState) {
         throw Exception("Can't match ${ty1.pretty()} with ${ty2.pretty()}")
     }
 
-    private fun infer(expr: Expression): Monotype {
+    private fun infer(env: Environment, expr: Expression): Monotype {
         TODO()
     }
 
-    fun inferExpr(expr: Expression): Monotype = zonk(infer(expr))
+    fun inferExpr(env: Environment, expr: Expression): Monotype = zonk(infer(env, expr))
 }

@@ -10,11 +10,12 @@ import syntax.Parser
 
 @Tag("unify")
 internal class UnifyTest {
-    private var typeChecker = TypeChecker(CheckState())
+    private var typeChecker = TypeChecker()
 
     @BeforeEach
     fun setUp() {
-        typeChecker.checkState = CheckState()
+        typeChecker.freshSupply = 0
+        typeChecker.substitution = Substitution(hashMapOf())
     }
 
     @Test
@@ -63,7 +64,7 @@ internal class UnifyTest {
         "u1" unifiedWith "u1"
         1 shouldBeSolved "u1"
 
-        assertEquals(typeChecker.checkState, CheckState())
+        assertEquals(typeChecker.substitution, Substitution())
     }
 
     @Test
@@ -152,7 +153,7 @@ internal class UnifyTest {
 
     private fun given(vararg substs: Pair<Int, String>) {
         substs.forEach {
-            typeChecker.checkState.substitution.subst[it.first] = Parser.parseTestType(it.second)
+            typeChecker.substitution[it.first] = Parser.parseTestType(it.second)
         }
     }
 

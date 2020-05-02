@@ -1,19 +1,20 @@
 package syntax
 
 import pretty.*
+import pretty.symbols.*
 
 fun Expression.show(): Doc<Nothing> = showInner(0)
-fun Expression.pretty(): kotlin.String {
+fun Expression.pretty(): String {
     return show().pretty(60, 0.4F)
 }
 
-fun Expression.showInner(depth: kotlin.Int): Doc<Nothing> = when (this) {
+fun Expression.showInner(depth: Int): Doc<Nothing> = when (this) {
     is Expression.Int -> int.toString().text()
     is Expression.Bool -> bool.toString().text()
     is Expression.String -> string.toString().text()
     is Expression.Var -> name.show()
     is Expression.Lambda -> {
-        var res = (("\\".text<Nothing>() + binder.show() + dot()).group() + space() + body.show()).group().nest(2)
+        var res = (("\\".text() + binder.show() + dot()).group() + space() + body.show()).group().nest(2)
         if (depth > 0) res = res.enclose(lParen(), rParen())
         res
     }
@@ -24,12 +25,12 @@ fun Expression.showInner(depth: kotlin.Int): Doc<Nothing> = when (this) {
         res
     }
     is Expression.Let ->
-        "let".text<Nothing>() + space() + binder.show() + space() + equals() + space() +
+        "let".text() + space() + binder.show() + space() + equals() + space() +
                 expr.show() + space() + "in".text() + line() +
                 body.show()
-    is Expression.If -> (("if".text<Nothing>() + space() + condition.show() + space() + "then".text()).group() +
+    is Expression.If -> (("if".text() + space() + condition.show() + space() + "then".text()).group() +
             space() + thenCase.show()).group().nest(2) +
-            space() + ("else".text<Nothing>() + space() + elseCase.show()).group().nest(2)
+            space() + ("else".text() + space() + elseCase.show()).group().nest(2)
 }
 
 fun Expression.App.unfoldApps(): Pair<Expression, List<Expression>> {
