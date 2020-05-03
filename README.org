@@ -1,31 +1,43 @@
-* Was ist Typ Inferenz?
+* Welcome everyone!
 
-Laut Wikipedia:
 
-Automatische Analyse des Typen eines Ausdrucks
-in einer Programmiersprache
+Today we'll learn about type inference from scratch
+
+** Prerequisites
+
+- Git
+- IntelliJ
+
+* What does Type Inference mean?
+
+From Wikipedia:
+
+Type inference refers to the automatic /detection/ of the /type/ of an
+/expression/ in a /programming language/.
 
 * Agenda
 
-- Unsere Programmiersprache & Beispielprogramme
-- Repräsentation in Kotlin (AST)
-- Abwechselnd Mob & Pair Programming
+- Getting to know our Programming Language & Example programs
 
-* How-To
+- Representing programs as data. Our Abstract Syntax in Kotlin
 
-1. Das Repo klonen: https://github.com/kritzcreek/infer_workshop
-2. Das geklonte Repo in IntelliJ öffnen (es sollte als Gradle Projekt
-   erkannt werden)
-3. Wenn alles geklappt hat sollte der ~Examples~ Run Task die Beispiel
-   Programme ausführen
+- Building a type inferencer alternating between Mob & Pair Programming
 
-Die voreingestellten Test Konfigurationen in IntelliJ in der folgenden
-Reihenfolge gruen machen. Hierfuer sollte nur ~types/TypeChecker.kt~
-angepasst werden muessen.
+** Setting Up
 
-Alle relevanten Datentypen befinden sich in ~syntax/AST.kt~ der Rest
-der Codebase sollte nicht gelesen werden müssen. (Wer Interesse oder
-Langeweile hat darf das natürlich trotzdem tun)
+1. Clone the repo at: https://github.com/kritzcreek/infer_workshop
+2. Open the Project in IntelliJ (it should be recognized as a Gradle project)
+3. If everything worked out running the ~Examples~ run task should
+   execute our example programs.
+
+** Implementation
+
+The pre-configured test configurations in IntelliJ should be made
+green in the following order. To do so you should only need to edit
+~types/TypeChecker.kt~. (You're free to look at any other file and
+read all the code, just don't be lead astray). All relevant data types
+can be found in ~syntax/AST.kt~. Please don't hesitate to use
+breakpoints and the debugger.
 
 1. Literal & Var
 2. Let
